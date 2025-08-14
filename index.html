@@ -1,0 +1,470 @@
+<!-- This is pretty much all GPT5 Slop™. But it does mostly work!-->
+<!doctype html>
+<meta charset="utf-8">
+<title>Plex Frame Guessr</title>
+<style>
+  :root{
+    --bg:#0f1226;
+    --bg2:#131735;
+    --card:#171b3d;
+    --muted:#9aa3b2;
+    --text:#e9ecf1;
+    --accent:#6ee7b7;
+    --accent-2:#22d3ee;
+    --danger:#ff6b6b;
+    --ring: rgba(110,231,183,.45);
+    --w: 980px;
+  }
+  #title{
+    text-align:center; margin: 4px; font-size: 28px; letter-spacing:.5px;
+    color: var(--text); text-shadow: 0 2px 18px rgba(0,0,0,.35);
+  }
+  html, body{ height:auto; }
+  body{
+    background-attachment: fixed, fixed, fixed;
+    margin:0;
+    color:var(--text);
+    background:
+      radial-gradient(1200px 800px at 20% -10%, rgba(34,211,238,.25), transparent 60%),
+      radial-gradient(1000px 700px at 120% 0%, rgba(110,231,183,.18), transparent 60%),
+      linear-gradient(180deg, var(--bg), var(--bg2));
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Segoe UI", "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    display:flex; align-items:center; justify-content:center;
+    padding:12px 32px 160px;               /* extra negative space at bottom */
+  }
+  #wrap{
+    width:100%; max-width:var(--w);
+    display:grid; gap:14px;
+    margin: 0 auto;
+  }
+  #sugg{ z-index: 1000; }    
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+    backdrop-filter: blur(6px);
+    border:1px solid rgba(255,255,255,.06);
+    border-radius:14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .toolbar{
+    display:flex; gap:10px; align-items:center; justify-content:center;
+    padding:12px;
+  }
+  button{
+    appearance:none; border:1px solid rgba(255,255,255,.1);
+    background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    color:var(--text);
+    padding:10px 14px; border-radius:12px; cursor:pointer;
+    transition: transform .05s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    z-index: 2;
+  }
+  button:hover{ border-color: rgba(255,255,255,.25) }
+  button:active{ transform: translateY(1px) }
+  button:focus-visible{ outline:2px solid var(--ring); outline-offset:2px }
+  button.primary{
+    background: linear-gradient(180deg, var(--accent), var(--accent-2));
+    color:#0b1024; font-weight:600; border-color:transparent;
+    margin-left: 25px;
+  }
+  button.primary:hover{ filter:brightness(1.05) }
+  button:disabled{ opacity:.5; cursor:not-allowed }
+
+  #frameWrap{
+    padding:14px; display:flex; justify-content:center;
+  }
+  #frame{
+    width:100%; max-height: 50vh;
+    object-fit: contain; border-radius:14px;
+    background: #0b0e22;
+    border:1px solid rgba(255,255,255,.08);
+    box-shadow: 0 20px 40px rgba(5,8,25,.55);
+  }
+
+  #strip{
+    display:grid; grid-template-columns: repeat(6, 1fr); gap:10px;
+    padding:12px;
+  }
+  .slot{
+    position:relative; aspect-ratio:16/9;
+    border-radius:12px; overflow:hidden; cursor:pointer;
+    background: #0f1330;
+    border:1px dashed rgba(255,255,255,.15);
+    transition: border-color .2s ease, box-shadow .2s ease, transform .12s ease;
+  }
+  .slot.filled{ border-style: solid; border-color: rgba(255,255,255,.12) }
+  .slot:hover{ box-shadow:0 10px 24px rgba(0,0,0,.35); transform: translateY(-1px) }
+  .slot.active{ box-shadow:0 0 0 3px var(--ring) inset }
+  .slot img{ width:100%; height:100%; object-fit:cover; display:block }
+  .badge{
+    position:absolute; top:8px; left:8px; font-size:12px;
+    background: linear-gradient(180deg, rgba(15,18,38,.8), rgba(15,18,38,.65));
+    border:1px solid rgba(255,255,255,.15);
+    color:var(--text); padding:2px 8px; border-radius:999px;
+  }
+
+  .guessRow{
+    display:grid; grid-template-columns: 1fr auto auto auto; gap:10px; align-items:center;
+    padding:12px;
+  }
+  .inputWrap{ position:relative }
+  input[type="text"]{
+    width:100%;
+    background: #0b0f26; color:var(--text);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:12px; padding:12px 12px;
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  input[type="text"]::placeholder{ color: #7f889a }
+  input[type="text"]:focus{ outline:none; border-color: rgba(255,255,255,.25); box-shadow: 0 0 0 3px var(--ring) }
+
+  /* custom suggestions dropdown */
+  #sugg{
+    position:absolute; left:0; right:0; top:100%; margin-top:6px;
+    background: #0c1026; border:1px solid rgba(255,255,255,.12);
+    border-radius:10px; max-height:260px; overflow:auto; z-index:20; display:none;
+    box-shadow: 0 16px 40px rgba(5,8,25,.6);
+  }
+  #sugg.open{ display:block }
+  #sugg .opt{
+    padding:10px 12px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  #sugg .opt:hover, #sugg .opt.active{ background: rgba(255,255,255,.06) }
+
+  #fails{ min-height: 1.5em; color: var(--danger); font-size: 14px }
+  #fails .chip{
+    display:inline-block; margin:2px 6px 0 0; padding:3px 9px;
+    border-radius:999px; background: rgba(255,107,107,.1);
+    border:1px solid rgba(255,107,107,.35); color:#ffd3d3;
+  }
+  #answer{ font-weight:600; margin-left:8px }
+  #judge{ min-width:160px }
+
+  #footer{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 12px;
+  }
+  progress{ width:260px; height:10px; -webkit-appearance:none; appearance:none; }
+  progress::-webkit-progress-bar{ background:#0e1430; border-radius:999px }
+  progress::-webkit-progress-value{ background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius:999px }
+  #status{ color: var(--muted); font-size: 13px }
+</style>
+
+<div id="wrap">
+  <div class="card">
+    <h1 id="title">Plex Frame Guessr</h1>
+    <div class="toolbar">
+      <button id="btnNext" class="primary" disabled>Next frame</button>
+      <button id="btnNew" disabled>New Movie</button>
+      <button id="btnReveal" disabled>Reveal</button>
+      <span id="answer"></span>
+    </div>
+  </div>
+
+  <div class="card" id="frameWrap">
+    <img id="frame" alt="frame">
+  </div>
+
+  <div id="strip" class="card"></div>
+
+  <div class="card guessRow">
+    <div class="inputWrap">
+      <input id="guess" type="text" placeholder="Guess: Title (Year)" disabled autocomplete="off">
+      <div id="sugg"></div>
+    </div>
+    <button id="btnSubmit" class="primary" disabled>Submit</button>
+    <span id="judge"></span>
+    <br />
+    <div id="fails"></div>
+  </div>
+
+  <div id="footer" class="card">
+    <progress id="pb" value="0" max="1" hidden></progress>
+    <span id="status"></span>
+  </div>
+</div>
+<script src="config.local.js"></script>
+<script>
+  const BASE = window.BASE;
+  const TOKEN = window.TOKEN;
+  const SECTION = "1";
+  const PAGE = 200;
+  const CACHE_KEY = "plex_items_v1";
+  const CACHE_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
+  const $ = id => document.getElementById(id);
+  const pb = $('pb'), status = $('status'), footer = $('footer');
+  const btnNext = $('btnNext'), btnNew = $('btnNew'), btnReveal = $('btnReveal');
+  const img = $('frame'), answer = $('answer');
+  const input = $('guess'), btnSubmit = $('btnSubmit'), judge = $('judge');
+  const strip = $('strip'), failsEl = $('fails'), sugg = $('sugg');
+
+  let items = [];
+  let labels = []; // "Title (Year)"
+  let currentItem = null;
+  let frames = [];
+  let activeIdx = -1;
+  let vid, canvas, ctx;
+  let suggIndex = -1;
+
+  function buildURL(path, params={}) {
+    const u = new URL(BASE + path);
+    u.searchParams.set("X-Plex-Token", TOKEN);
+    for (const [k,v] of Object.entries(params)) u.searchParams.set(k, v);
+    return u.toString();
+  }
+  async function fetchXML(url) {
+    const r = await fetch(url);
+    return new DOMParser().parseFromString(await r.text(), "application/xml");
+  }
+  function parseVideos(doc) {
+    const out = [];
+    doc.querySelectorAll("Video").forEach(v => {
+      const title = v.getAttribute("title") || "";
+      const year = v.getAttribute("year") || "";
+      const duration = +(v.getAttribute("duration") || "0");
+      v.querySelectorAll("Media Part").forEach(p => {
+        const partId = p.getAttribute("id");
+        const url = `${BASE}/library/parts/${partId}/file?download=1&X-Plex-Token=${encodeURIComponent(TOKEN)}`;
+        out.push({ title, year, duration, partId, url });
+      });
+    });
+    return out;
+  }
+
+  async function fetchAllMovies() {
+    let start = 0, acc = [];
+    pb.hidden = false; pb.value = 0; status.textContent = "Loading…";
+    while (true) {
+      const url = buildURL(`/library/sections/${SECTION}/all`, {
+        type: 1,
+        "X-Plex-Container-Start": start,
+        "X-Plex-Container-Size": PAGE
+      });
+      const xml = await fetchXML(url);
+      const mc = xml.querySelector("MediaContainer");
+      const totalSize = +(mc?.getAttribute("totalSize") || 0);
+      const chunk = parseVideos(xml);
+      if (acc.length === 0 && totalSize > 0) pb.max = totalSize;
+      acc = acc.concat(chunk);
+      pb.value = acc.length;
+      status.textContent = totalSize ? `Loaded ${acc.length} / ${totalSize}` : `Loaded ${acc.length}`;
+      if (chunk.length === 0) break;
+      start += chunk.length;
+      await new Promise(r => setTimeout(r, 5));
+    }
+    pb.hidden = true; status.textContent = `Loaded ${acc.length}`;
+    footer.hidden = true;
+    return acc;
+  }
+
+  function saveCache(items) {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), items }));
+  }
+  function loadCache() {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    try {
+      const obj = JSON.parse(raw);
+      if (!obj || !Array.isArray(obj.items)) return null;
+      if (typeof obj.savedAt !== "number") return null;
+      if (Date.now() - obj.savedAt > CACHE_MAX_AGE_MS) return null;
+      return obj.items;
+    } catch { return null; }
+  }
+
+  function makeLabel(it){ return `${it.title}${it.year ? ` (${it.year})` : ""}` }
+
+  function populateLabels(arr){ labels = arr.map(makeLabel) }
+
+  function timePrint(sec) {
+    sec = Math.max(0, sec);
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec - h*3600 - m*60;
+    if (h === 0) return `${String(m).padStart(2,'0')}m_${s.toFixed(3).padStart(6,'0')}s`;
+    return `${h}h_${String(m).padStart(2,'0')}m_${s.toFixed(3,'0')}s`;
+  }
+
+  async function ensureVideo(url) {
+    if (!vid) {
+      vid = document.createElement('video');
+      vid.crossOrigin = 'anonymous';
+      vid.preload = 'metadata';
+      canvas = document.createElement('canvas');
+      ctx = canvas.getContext('2d', { willReadFrequently: true });
+      document.body.appendChild(Object.assign(document.createElement('div'), { style:'display:none' })).appendChild(vid);
+    }
+    if (vid.src !== url) {
+      vid.src = url;
+      await vid.play().catch(()=>{});
+      vid.pause();
+      if (vid.readyState < 1) await new Promise(r => vid.addEventListener('loadedmetadata', r, { once:true }));
+    }
+  }
+
+  async function captureRandomFrame(item) {
+    await ensureVideo(item.url);
+    const dur = isFinite(vid.duration) ? vid.duration : (item.duration ? item.duration/1000 : 600);
+    const t = Math.random() * (dur * 0.90) + dur * 0.05;
+    vid.currentTime = t;
+    if (vid.seeking || vid.readyState < 2) await new Promise(r => vid.addEventListener('seeked', r, { once:true }));
+    canvas.width = vid.videoWidth; canvas.height = vid.videoHeight;
+    ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
+    return { blobUrl: URL.createObjectURL(blob), t };
+  }
+
+  function pickRandomItem(){ return items[Math.floor(Math.random() * items.length)] }
+
+  function setActive(idx){
+    activeIdx = idx;
+    img.src = frames[idx].blobUrl;
+    strip.querySelectorAll('.slot').forEach((s,i)=>s.classList.toggle('active', i===idx));
+  }
+
+  function renderStrip(){
+    strip.innerHTML = "";
+    for (let i=0;i<6;i++){
+      const slot = document.createElement('div');
+      slot.className = 'slot' + (i < frames.length ? ' filled' : '');
+      const b = document.createElement('div'); b.className='badge'; b.textContent=`${i+1}/6`; slot.appendChild(b);
+      if (i < frames.length){
+        const im = document.createElement('img'); im.src = frames[i].blobUrl; slot.appendChild(im);
+        slot.onclick = () => setActive(i);
+      }
+      if (i === activeIdx) slot.classList.add('active');
+      strip.appendChild(slot);
+    }
+  }
+
+  async function nextFrame(){
+    if (!currentItem || frames.length >= 6) return;
+    btnNext.disabled = true; judge.textContent = ""; answer.textContent = "";
+    const shot = await captureRandomFrame(currentItem);
+    frames.push({ blobUrl: shot.blobUrl, t: shot.t });
+    renderStrip();
+    setActive(frames.length - 1);
+    btnNext.disabled = frames.length >= 6;
+    btnReveal.disabled = false;
+  }
+
+  function logFail(s){
+    if (!s) return;
+    const chip = document.createElement('span');
+    chip.className = 'chip'; chip.textContent = s;
+    failsEl.appendChild(chip);
+  }
+  function clearFails(){ failsEl.innerHTML = '' }
+
+  function newMovie(){
+    currentItem = pickRandomItem();
+    frames = []; activeIdx = -1;
+    answer.textContent = ""; judge.textContent = "";
+    clearFails(); renderStrip();
+    btnNext.disabled = false; btnReveal.disabled = true;
+  }
+
+  function normalize(s){ return s.trim().toLowerCase().replace(/\s+/g," ") }
+
+  btnNext.onclick = nextFrame;
+  btnNew.onclick = () => { newMovie(); nextFrame(); };
+  btnReveal.onclick = () => {
+    if (!currentItem) return;
+    answer.textContent = makeLabel(currentItem);
+  };
+  btnSubmit.onclick = async () => {
+  if (!currentItem) return;
+    const g = input.value.trim();
+    const truth = makeLabel(currentItem);
+    input.value = "";
+
+    if (normalize(g) === normalize(truth) || normalize(g) === normalize(currentItem.title)){
+      judge.textContent = "✅ Correct!";
+      closeSugg();
+      return;
+    }
+
+    judge.textContent = "Incorrect";
+    logFail(g);
+    closeSugg();
+
+    if (frames.length < 6) {
+      await nextFrame();
+    }
+    if (frames.length >= 6) {              // auto-reveal after 6th fail
+      answer.textContent = makeLabel(currentItem);
+      btnNext.disabled = true;
+      btnReveal.disabled = false;
+    }
+  };
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter'){ e.preventDefault(); btnSubmit.click(); }
+    if (sugg.classList.contains('open')){
+      if (e.key === 'ArrowDown'){ moveSugg(1); e.preventDefault(); }
+      if (e.key === 'ArrowUp'){ moveSugg(-1); e.preventDefault(); }
+      if (e.key === 'Tab'){ pickActiveSugg(); }
+    }
+  });
+
+  // custom suggestions
+  function openSugg(list){
+    sugg.innerHTML = "";
+    list.forEach((txt,i)=>{
+      const d = document.createElement('div');
+      d.className = 'opt' + (i===0 ? ' active' : '');
+      d.textContent = txt;
+      d.onclick = () => { input.value = txt; closeSugg(); input.focus(); };
+      sugg.appendChild(d);
+    });
+    suggIndex = list.length ? 0 : -1;
+    if (list.length){ sugg.classList.add('open'); } else { sugg.classList.remove('open'); }
+  }
+  function closeSugg(){ sugg.classList.remove('open'); suggIndex = -1; }
+  function moveSugg(delta){
+    const opts = Array.from(sugg.querySelectorAll('.opt'));
+    if (!opts.length) return;
+    opts.forEach(o=>o.classList.remove('active'));
+    suggIndex = (suggIndex + delta + opts.length) % opts.length;
+    opts[suggIndex].classList.add('active');
+    opts[suggIndex].scrollIntoView({ block:'nearest' });
+  }
+  function pickActiveSugg(){
+    const a = sugg.querySelector('.opt.active');
+    if (a){ input.value = a.textContent; closeSugg(); }
+  }
+  input.addEventListener('input', () => {
+    const q = normalize(input.value);
+    if (!q){ closeSugg(); return; }
+    const res = labels.filter(l => normalize(l).includes(q)).slice(0, 12);
+    openSugg(res);
+  });
+  document.addEventListener('click', e => {
+    if (!sugg.contains(e.target) && e.target !== input) closeSugg();
+  });
+
+  async function init(){
+    const cached = loadCache();
+    if (cached && cached.length){
+      items = cached; populateLabels(items);
+      status.textContent = `Loaded from cache: ${items.length}`;
+      btnNew.disabled = false; btnNext.disabled = false; btnReveal.disabled = true;
+      input.disabled = false; btnSubmit.disabled = false;
+      footer.style.display = 'none';
+      console.log(footer);
+      newMovie(); nextFrame(); return;
+    }
+    try{
+      items = await fetchAllMovies();
+      populateLabels(items);
+      saveCache(items);
+      status.textContent = `Loaded fresh: ${items.length}`;
+      btnNew.disabled = false; btnNext.disabled = false; btnReveal.disabled = true;
+      input.disabled = false; btnSubmit.disabled = false;
+      footer.style.display = 'none';
+      console.log(footer);
+      newMovie(); nextFrame();
+    }catch(e){
+      status.textContent = `Error: ${e.message}`;
+    }
+  }
+  init();
+</script>
