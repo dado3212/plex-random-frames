@@ -1,7 +1,12 @@
 # Plex Random Frames
-Script for pulling a random frame from a movie off of Plex.
 
-https://framed.wtf/
+This is two projects in one: a Python script to automatically download random frames from your Plex movies based on the IMDb ID, and a local web app that mirrors https://framed.wtf/ to have you guess a movie from your Plex library based on up to 6 random frames.
+
+Sample images of the web app:
+<img width="1259" height="981" alt="Screenshot 2025-08-13 at 8 42 00 PM" src="https://github.com/user-attachments/assets/2ab0b96c-e122-4fb7-80bc-aa44643b4e0a" />
+
+<img width="1259" height="981" alt="Screenshot 2025-08-13 at 8 42 24 PM" src="https://github.com/user-attachments/assets/ac81fef7-e15e-44ec-92f6-ca1b12d73eec" />
+
 
 ## Installation
 
