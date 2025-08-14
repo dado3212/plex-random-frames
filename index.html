@@ -183,6 +183,11 @@
 </div>
 <script src="config.local.js"></script>
 <script>
+  // Make sure you're on the crappy version
+  if (location.protocol === 'https:') {
+    location.href = 'http://' + location.host + location.pathname + location.search + location.hash;
+  }
+
   const BASE = window.BASE;
   const TOKEN = window.TOKEN;
   const SECTION = "1";
