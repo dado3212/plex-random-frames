@@ -11,5 +11,6 @@ python -m pip install -r requirements.txt
 ## Running
 ```
 source venv/bin/activate
-python main.py
+python main.py random
+python main.py tt0049406 3
 ```
