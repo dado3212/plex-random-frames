@@ -449,7 +449,6 @@
       btnNew.disabled = false; btnNext.disabled = false; btnReveal.disabled = true;
       input.disabled = false; btnSubmit.disabled = false;
       footer.style.display = 'none';
-      console.log(footer);
       newMovie(); nextFrame(); return;
     }
     try{
@@ -460,7 +459,6 @@
       btnNew.disabled = false; btnNext.disabled = false; btnReveal.disabled = true;
       input.disabled = false; btnSubmit.disabled = false;
       footer.style.display = 'none';
-      console.log(footer);
       newMovie(); nextFrame();
     }catch(e){
       status.textContent = `Error: ${e.message}`;
