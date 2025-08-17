@@ -34,8 +34,6 @@ def main():
   # Get URL and pick a random duration
   url = f"{PLEX_URL}/library/parts/{movie.media[0].parts[0].id}/file?download=1&X-Plex-Token={PLEX_TOKEN}"
   dur_ms = movie.duration
-  print(url)
-  exit()
   
   for i in range(0, args.count):
     t = random.randint(int(dur_ms*0.05), int(dur_ms*0.95))
@@ -43,7 +41,7 @@ def main():
     if pick_random:
       file_name = f'unknown_{i}.jpg'
     else:
-      file_name = f'{movie.title}_{get_time_print(t/1000.0)}.jpg'
+      file_name = f'{movie.title.replace(': ', '_')}_{get_time_print(t/1000.0)}.jpg'
 
     # Download the frame to a file
     subprocess.run([
